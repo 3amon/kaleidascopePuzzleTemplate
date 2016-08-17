@@ -10,6 +10,119 @@ CRGB leds[NUM_LEDS];
 bool gReverseDirection = false;
 int led_state = 0;
 
+CRGB g_cross[6];
+CRGB g_cube[6];
+int num_colors = 3;
+CRGB options[3] = {CRGB::Red, CRGB::Blue, CRGB::Green};
+bool pending_spatial_update;
+
+void updateSpaitialPuzzle()
+{
+    if(pending_spatial_update) {
+        for (int i = 0; i < LED_BASE; ++i) {
+            leds[i] = CRGB::Black;
+        }
+        for (int i = 0; i < 6 * 4; ++i) {
+            leds[LED_BASE + i] = g_cube[i / 4];
+        }
+
+        for (int i = 0; i < 6 * 4; ++i) {
+            leds[LED_BASE + i + 6 * 4] = g_cross[i / 4];
+        }
+        pending_spatial_update = false;
+    }
+}
+
+void setRandomCross()
+{
+    for(int i = 0; i < 6; ++i)
+    {
+        long index = random(num_colors);
+        g_cross[i] = options[index];
+    }
+}
+
+void setRandomCube()
+{
+    for(int i = 0; i < 6; ++i)
+    {
+        long index = random(num_colors);
+        g_cube[i] = options[index];
+    }
+}
+
+bool calcMatch(int * r1, int * r2, int len)
+{
+    // If the length of our "remaining sides"
+    // arrays is 0, we have matched all the sides
+    // and found a match!
+    if(len == 0)
+    {
+        return true;
+    }
+
+    // Holds the opposite face by index.
+    // So the 0ths face is opposite face 5
+    int opposites[6] = {5,4,3,2,1,0};
+
+    for(int i = 0; i < len; ++i)
+    {
+        int s1 = r1[i];
+        int o1 = opposites[s1];
+        for(int j = 0; j < len; ++j)
+        {
+            int s2 = r2[j];
+            int o2 = opposites[s2];
+
+            if (g_cube[s1] == g_cross[s2] && g_cube[o1] == g_cross[o2])
+            {
+                int newLen = len - 2;
+                int newR1[newLen];
+                int newR2[newLen];
+
+                int r1Index = 0;
+                int r2Index = 0;
+                // Add the remaining elements except the ones we found
+                for(int k = 0; k < len; ++ k)
+                {
+                    if(r1[k] != s1 &&
+                       r1[k] != o1)
+                    {
+                        newR1[r1Index] = r1[k];
+                        ++r1Index;
+                    }
+
+                    if(r2[k] != s2 &&
+                       r2[k] != o2)
+                    {
+                        newR2[r2Index] = r2[k];
+                        ++r2Index;
+                    }
+                }
+
+                if(calcMatch(newR1, newR2, newLen))
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void spatialPuzzleNewBox(bool match)
+{
+    int r1[6] = {5,4,3,2,1,0};
+    int r2[6] = {5,4,3,2,1,0};
+    setRandomCube();
+    while(calcMatch(r1, r2, 6) != match)
+    {
+        setRandomCube();
+        setRandomCross();
+    }
+    pending_spatial_update = true;
+}
+
 // Fire2012 by Mark Kriegsman, July 2012
 // as part of "Five Elements" shown here: http://youtu.be/knWiGsmgycY
 ////
@@ -230,6 +343,11 @@ void ledUpdate()
         case LED_FLASH_RED:
         {
             flash();
+            break;
+        }
+        case LED_SPATIAL_PUZZLE:
+        {
+            updateSpaitialPuzzle();
             break;
         }
         default:

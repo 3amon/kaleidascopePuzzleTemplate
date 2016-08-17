@@ -7,15 +7,9 @@
 
 #include <Arduino.h>
 
-String bootPromptLine1 = "Use: +/-/.";
+#define ARRAY_SIZE( array ) sizeof( array ) / sizeof( array[0] )
 
-String bootPromptLines[] = {
-        ////////////////
-        "Start Puzzle",
-        "Test LEDs",
-        "Configure" };
-
-String puzzlePrompt[] = {
+char puzzlePrompt[8][LCD_LINE_BUFFER_LENGTH] = {
         ////////////////
         "Greetings:",
         "<player_name>",
@@ -27,15 +21,17 @@ String puzzlePrompt[] = {
         "unfolded cross."
 };
 
-String puzzle_password_prompt[] = {
+int puzzlePromptSize = ARRAY_SIZE(puzzlePrompt);
+
+char puzzle_password_prompt[2][LCD_LINE_BUFFER_LENGTH] = {
         ////////////////
         "Enter password:",
         "<password>"
 };
 
-String moralChoicePrompt[] = {
+char moralChoicePrompt[10][LCD_LINE_BUFFER_LENGTH] = {
         ////////////////
-        "Now use the",
+        "Use the",
         "keypad to",
         "choose your",
         "path...",
@@ -47,7 +43,7 @@ String moralChoicePrompt[] = {
         "choice..."
 };
 
-String puzzleCompleteInstructions[] = {
+char puzzleCompleteInstructions[2][LCD_LINE_BUFFER_LENGTH] = {
         ////////////////
         "Please retag",
         "your card!"

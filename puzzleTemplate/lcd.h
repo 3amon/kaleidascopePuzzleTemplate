@@ -6,12 +6,13 @@
 #define PUZZLETEMPLATE_LCD_H
 
 #include <Arduino.h>
+#include "config.h"
 
 void lcdReset();
 
 void lcdDisplayOn();
 
-void setLcdMessage(String * lines, int numLines, unsigned long dly);
+void setLcdMessage(char lines[][LCD_LINE_BUFFER_LENGTH], int numLines, unsigned long dly);
 
 bool updateLcdMessage();
 

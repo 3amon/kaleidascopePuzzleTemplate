@@ -14,7 +14,8 @@ int lcd_lineIndex = 0;
 int lcd_numLines = 0;
 unsigned long lcd_timer = 0UL;
 unsigned long lcd_dly = 0UL;
-String * lcd_lines = 0;
+// Don't make any message longer than 20 lines please!
+char lcd_lines[20][LCD_LINE_BUFFER_LENGTH];
 
 void lcdReset()
 {
@@ -34,10 +35,17 @@ void lcdClear()
     lcd.clear();
 }
 
-void setLcdMessage(String * lines, int numLines, unsigned long dly)
+void setLcdMessage(char lines[][LCD_LINE_BUFFER_LENGTH], int numLines, unsigned long dly)
 {
+    bool done = false;
+    for(int i = 0; i < numLines; ++i)
+    {
+        memset(lcd_lines[i], 0, LCD_LINE_BUFFER_LENGTH);
+        strncpy(lcd_lines[i], lines[i], LCD_LINE_BUFFER_LENGTH);
+    }
+
+    //bookkeeping
     lcd_timer = millis();
-    lcd_lines = lines;
     lcd_numLines = numLines;
     lcd_lineIndex = 0;
     lcd_dly = dly;

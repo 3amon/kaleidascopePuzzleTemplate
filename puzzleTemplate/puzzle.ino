@@ -7,7 +7,9 @@
 #define NULL_STATE 100
 
 static uint8_t puzzle_state;
-static int score;
+static int puzzle_score;
+static bool puzzle_match;
+unsigned long puzzle_timer = millis();
 
 #include "lcd.h"
 #include "config.h"
@@ -17,14 +19,22 @@ static int score;
 
 void setupPuzzle(char * playerName)
 {
-    score = 0;
+    puzzle_score = 0;
     puzzle_state = WAIT_PUZZLE_PROMPT;
     gameDone = false;
     keyClearData();
-    puzzlePrompt[1] = String(playerName);
+    strncpy(puzzlePrompt[1], playerName, LCD_LINE_BUFFER_LENGTH);
     lcdDisplayOn();
     setLcdMessage(puzzlePrompt, 8, 3000);
     updateLcdMessage();
+}
+
+void makeNewPuzzle()
+{
+    puzzle_match = random(10) >= 1;
+    puzzle_timer = millis();
+    spatialPuzzleNewBox(puzzle_match);
+    ledSetState(LED_SPATIAL_PUZZLE);
 }
 
 void updateGameState() {
@@ -34,26 +44,43 @@ void updateGameState() {
                 buttonOn();
                 puzzle_state = PUZZLE_RUNNING;
                 lcdReset();
+                makeNewPuzzle();
             }
             break;
         }
         case PUZZLE_RUNNING:
             if (buttonPressed()) {
                 ResetWatchdogTimer();
-                ++score;
-                if (score >= GAME_MATCH_REQ) {
-                    puzzle_state = PUZZLE_DONE;
-                } else {
-                    ledSetState(LED_FLASH_GREEN);
-                    puzzle_state = SHOW_RESULT;
-                    setFlashCount(score);
+                if(puzzle_match) {
+                    ++puzzle_score;
+                    if(puzzle_score >= GAME_MATCH_REQ)
+                    {
+                        puzzle_state = PUZZLE_DONE;
+                    }
+                    else
+                    {
+                        setFlashCount(puzzle_score);
+                        ledSetState(LED_FLASH_GREEN);
+                        puzzle_state = SHOW_RESULT;
+                    }
                 }
+                else
+                {
+                    setFlashCount(1);
+                    puzzle_score = max(puzzle_score - 1, 0);
+                    ledSetState(LED_FLASH_RED);
+                    puzzle_state = SHOW_RESULT;
+                }
+            }
+            else if (millis() - puzzle_timer > GAME_BASE_UPDATE_RATE)
+            {
+                makeNewPuzzle();
             }
             break;
         case SHOW_RESULT:{
             if(ledGetFlashDone())
             {
-                ledSetState(LED_OFF);
+                makeNewPuzzle();
                 puzzle_state = PUZZLE_RUNNING;
             }
             break;
@@ -62,7 +89,6 @@ void updateGameState() {
             gameDone = true;
             buttonOff();
             keyClearData();
-            lcdReset();
             puzzle_state = NULL_STATE;
             break;
         default:

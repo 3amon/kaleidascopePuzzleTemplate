@@ -17,15 +17,16 @@ unsigned long sleepTime = 1000; //how long you want the arduino to sleep
 
 #define Sprintln(a) (Serial.println(F(a)))
 
-#define SHOW_BOOT_PROMPT 0
-#define IDLE_STATE 1
+#define SLEEP_STATE 1
 #define DISPLAY_IDLE 2
 #define WAIT_FOR_GAME_DONE 3
 #define DISPLAY_CHOICE_PROMPT 4
 #define WAIT_MORAL_CHOICE 5
 #define WAIT_FOR_GAME_DONE_TAG 6
+#define WAIT_IDLE_LDE 7
+#define WAIT_IDLE_OFF 8
 
-int checkin_fsm_state = IDLE_STATE;
+int checkin_fsm_state = WAIT_IDLE_OFF;
 
 byte playerUid[4];
 byte playerName[16];
@@ -36,6 +37,7 @@ byte playerPacket[playerPacketSize];
 bool gameDone = false;
 int choiceEntered = 0;
 unsigned long idle_demo_timer = 0;
+int sleepCycles = 0;
 
 
 void setup() {
@@ -46,8 +48,15 @@ void setup() {
     setupButton();
     buttonOff();
     StartWatchdogTimer();
-    checkin_fsm_state = IDLE_STATE;
+    if(PUZZLE_DEBUG_MODE == 0) {
+        checkin_fsm_state = WAIT_IDLE_OFF;
+    }
+    else
+    {
+        checkin_fsm_state = WAIT_FOR_GAME_DONE;
+    }
     idle_demo_timer = millis();
+    randomSeed(analogRead(0));
 }
 
 void sleepNow() {
@@ -60,42 +69,60 @@ void sleepNow() {
     setup();
 }
 
+void process_rfid_checkIn()
+{
+    if (rfidDetected(playerUid, playerName, playerData, CHECKIN_TRIES_BYTE)) {
+        ResetWatchdogTimer();
+        setupPuzzle((char *)playerName);
+        checkin_fsm_state = WAIT_FOR_GAME_DONE;
+    }
+}
+
 void process_state_machine()
 {
     //state machine
     switch (checkin_fsm_state) {
-        case IDLE_STATE:  //Starting state to wait for RFID tag
+        case SLEEP_STATE:  //Starting state to wait for RFID tag
         {
-            if(PUZZLE_DEBUG_MODE == 0) {
-                if (millis() - idle_demo_timer <= IDLE_DEMO_TIME) {
-                    ledSetState(LED_IDLE);
-                } else {
-                    ledSetState(LED_OFF);
-                    sleepNow();
-                    if (random(15) == 0) {
-                        idle_demo_timer = millis();
-                    }
-                }
+
+            ++sleepCycles;
+            sleepNow();
+            Serial.println(sleepCycles);
+            if(sleepCycles >= 20)
+            {
+                ledSetState(LED_IDLE);
+                checkin_fsm_state = WAIT_IDLE_LDE;
+                idle_demo_timer = millis();
             }
             else
             {
-                ledSetState((LED_IDLE));
+                ledSetState(LED_OFF);
+                checkin_fsm_state = WAIT_IDLE_OFF;
+                idle_demo_timer = millis();
             }
-            if (rfidDetected(playerUid, playerName, playerData, CHECKIN_TRIES_BYTE)) {
-                ResetWatchdogTimer();
-                setupPuzzle((char *)playerName);
-                checkin_fsm_state = WAIT_FOR_GAME_DONE;
+            break;
+        }
+        case WAIT_IDLE_OFF:
+        {
+            if (millis() - idle_demo_timer > IDLE_OFF_TIME) {
+                checkin_fsm_state = SLEEP_STATE;
             }
-            else
-            {
-                closeRfid();
+            process_rfid_checkIn();
+            break;
+        }
+        case WAIT_IDLE_LDE: {
+            if (millis() - idle_demo_timer > IDLE_DEMO_TIME) {
+                sleepCycles = 0;
+                checkin_fsm_state = SLEEP_STATE;
             }
+            process_rfid_checkIn();
             break;
         }
         case WAIT_FOR_GAME_DONE: {
             updateGameState();
             if (gameDone) {
                 lcdDisplayOn();
+                ledSetState(LED_OFF);
                 checkin_fsm_state = DISPLAY_CHOICE_PROMPT;
                 setLcdMessage(moralChoicePrompt, 10, 3000);
             }
@@ -138,7 +165,7 @@ void process_state_machine()
 
         case WAIT_FOR_GAME_DONE_TAG: {
             // Display name and ask to retag
-            ledSetState(LED_VICTORY);
+            ledSetState(LED_OFF);
             byte oldPlayerName[16];
             byte oldPlayerData[16];
             byte writeTagDone[1];
@@ -148,7 +175,6 @@ void process_state_machine()
                 // people don't know exactly what they are picking
                 if(choiceEntered = 0) {
                     if (!incrementBlockRfid(PARAGON_CHOICE_COUNT_BYTE)) {
-                        closeRfid();
                         break;
                     }
                 }
@@ -156,17 +182,12 @@ void process_state_machine()
                 {
                     if (!incrementBlockRfid(RENEGADE_CHOICE_COUNT_BYTE))
                     {
-                        closeRfid();
                         break;
                     }
                 }
                 ResetWatchdogTimer();
                 lcdReset();
-                checkin_fsm_state = IDLE_STATE;
-                closeRfid();
-            }
-            else {
-                closeRfid();
+                checkin_fsm_state = SLEEP_STATE;
             }
             break;
         }
@@ -177,10 +198,10 @@ void process_state_machine()
 
 void loop() {
     process_state_machine();
-    Serial.println(checkin_fsm_state);
     ledUpdate();
     FastLED.show();
-    if(WatchdogTimerExpired())
+    closeRfid();
+    if(WatchdogTimerExpired() && PUZZLE_DEBUG_MODE == 0)
     {
         setup();
     }
