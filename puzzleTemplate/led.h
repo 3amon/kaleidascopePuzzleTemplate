@@ -20,6 +20,7 @@
 #define LED_FLASH_GREEN 3
 #define LED_FLASH_RED 4
 #define LED_SPATIAL_PUZZLE 5
+#define LED_CYCLE_GAME_SIDES 6
 
 void ledUpdate();
 

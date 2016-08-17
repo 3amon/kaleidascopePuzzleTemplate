@@ -23,6 +23,7 @@ void setupPuzzle(char * playerName)
     puzzle_state = WAIT_PUZZLE_PROMPT;
     gameDone = false;
     keyClearData();
+    ledSetState(LED_OFF);
     strncpy(puzzlePrompt[1], playerName, LCD_LINE_BUFFER_LENGTH);
     lcdDisplayOn();
     setLcdMessage(puzzlePrompt, 8, 3000);
@@ -31,7 +32,7 @@ void setupPuzzle(char * playerName)
 
 void makeNewPuzzle()
 {
-    puzzle_match = random(10) >= 1;
+    puzzle_match = random(10) >= 3;
     puzzle_timer = millis();
     spatialPuzzleNewBox(puzzle_match);
     ledSetState(LED_SPATIAL_PUZZLE);

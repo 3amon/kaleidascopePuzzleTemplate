@@ -12,6 +12,24 @@ int led_state = 0;
 
 CRGB g_cross[6];
 CRGB g_cube[6];
+int g_cubeFaceOffsets[6] =
+        {
+                11,
+                15,
+                19,
+                23,
+                27,
+                31
+        };
+int g_crossFaceOffsets[6] =
+        {
+                55,
+                39,
+                51,
+                43,
+                47,
+                35
+        };
 int num_colors = 3;
 CRGB options[3] = {CRGB::Red, CRGB::Blue, CRGB::Green};
 bool pending_spatial_update;
@@ -19,16 +37,19 @@ bool pending_spatial_update;
 void updateSpaitialPuzzle()
 {
     if(pending_spatial_update) {
+        // Turn off the "base strip"
+        // for power saving
+
         for (int i = 0; i < LED_BASE; ++i) {
             leds[i] = CRGB::Black;
         }
-        for (int i = 0; i < 6 * 4; ++i) {
-            leds[LED_BASE + i] = g_cube[i / 4];
+        for (int i = 0; i < 6; ++i) {
+            for(int j = 0; j < 4; ++j) {
+                leds[g_cubeFaceOffsets[i] + j] = g_cube[i];
+                leds[g_crossFaceOffsets[i] + j] = g_cross[i];
+            }
         }
 
-        for (int i = 0; i < 6 * 4; ++i) {
-            leds[LED_BASE + i + 6 * 4] = g_cross[i / 4];
-        }
         pending_spatial_update = false;
     }
 }
@@ -296,6 +317,35 @@ bool ledGetFlashDone()
     return flashCount + 1 > flashSetCount;
 }
 
+static unsigned long cycleSideTimer;
+static int sideIndex;
+
+void cycleGameSides()
+{
+    if (millis() - cycleSideTimer > 1000)
+    {
+        long index = random(num_colors);
+        for(int i = 0; i < 6; ++i)
+        {
+
+            if(i == sideIndex) {
+                g_cube[i] = options[index];
+                g_cross[i] = options[index];
+            }
+            else
+            {
+                g_cube[i] = CRGB::Black;
+                g_cross[i] = CRGB::Black;
+            }
+
+        }
+        cycleSideTimer = millis();
+        pending_spatial_update = true;
+        sideIndex = (sideIndex + 1) % 6;
+        updateSpaitialPuzzle();
+    }
+}
+
 void ledSetState(int state)
 {
     led_state = state;
@@ -314,6 +364,11 @@ void ledSetState(int state)
             flashColor = CRGB::Red;
             flashCount = 0;
             break;
+        }
+        case LED_CYCLE_GAME_SIDES:
+        {
+            cycleSideTimer = millis();
+            sideIndex = 0;
         }
         default:
             break;
@@ -348,6 +403,11 @@ void ledUpdate()
         case LED_SPATIAL_PUZZLE:
         {
             updateSpaitialPuzzle();
+            break;
+        }
+        case LED_CYCLE_GAME_SIDES:
+        {
+            cycleGameSides();
             break;
         }
         default:

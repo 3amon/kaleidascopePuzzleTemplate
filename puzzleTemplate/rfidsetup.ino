@@ -31,7 +31,6 @@ boolean rfidDetected(byte uid[], byte playerName[], byte playerData[], int incBy
   for (int i = 0; i < 4; i++) {
     uid[i] = mfrc522.uid.uidByte[i];
   }
-  Sprintln("found uid");
   //dump_byte_array(uid, 4);
   boolean status;
   status = readRfid(playerName, NAME_RFID_BLOCK, 16);
@@ -52,7 +51,7 @@ boolean writeRfid(byte *dataBlock, byte blockAddr, byte bufferSize) {
   status = (MFRC522::StatusCode) mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
   if (status != MFRC522::STATUS_OK) {return false;}
   status = (MFRC522::StatusCode) mfrc522.MIFARE_Write(blockAddr, dataBlock, bufferSize);
-  if (status != MFRC522::STATUS_OK) {return false;} Sprintln("wrote rf data");
+  if (status != MFRC522::STATUS_OK) {return false;}
   return true;
 }
 
@@ -67,14 +66,13 @@ boolean readRfid(byte *dataBlock, byte blockAddr, byte bufferSize) {
   status = (MFRC522::StatusCode) mfrc522.MIFARE_Read(blockAddr, buffer, &size);
   if (status != MFRC522::STATUS_OK) {return false;}
   
-  memcpy(dataBlock, buffer, 16);  Sprintln("read rf data");
+  memcpy(dataBlock, buffer, 16);
   return true;
 }
 
 boolean incrementBlockRfid(byte dataBlockByte) {
   boolean status;
   byte rfidData[16];
-  Sprintln("start increment function");
   status = readRfid(rfidData,DATA_RFID_BLOCK,16);
   if (status != true) {return status;}
   rfidData[dataBlockByte]++;

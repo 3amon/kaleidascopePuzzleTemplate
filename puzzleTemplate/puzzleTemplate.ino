@@ -15,8 +15,6 @@ Sleep sleep;
 unsigned long sleepTime = 1000; //how long you want the arduino to sleep
 #define RST_PIN         10
 
-#define Sprintln(a) (Serial.println(F(a)))
-
 #define SLEEP_STATE 1
 #define DISPLAY_IDLE 2
 #define WAIT_FOR_GAME_DONE 3
@@ -25,6 +23,7 @@ unsigned long sleepTime = 1000; //how long you want the arduino to sleep
 #define WAIT_FOR_GAME_DONE_TAG 6
 #define WAIT_IDLE_LDE 7
 #define WAIT_IDLE_OFF 8
+#define DEBUG_STATE 99
 
 int checkin_fsm_state = WAIT_IDLE_OFF;
 
@@ -47,13 +46,15 @@ void setup() {
     ledSetup();
     setupButton();
     buttonOff();
-    StartWatchdogTimer();
+
     if(PUZZLE_DEBUG_MODE == 0) {
         checkin_fsm_state = WAIT_IDLE_OFF;
+        StartWatchdogTimer();
     }
     else
     {
-        checkin_fsm_state = WAIT_FOR_GAME_DONE;
+        ledSetState(LED_CYCLE_GAME_SIDES);
+        checkin_fsm_state = DEBUG_STATE;
     }
     idle_demo_timer = millis();
     randomSeed(analogRead(0));
@@ -71,11 +72,44 @@ void sleepNow() {
 
 void process_rfid_checkIn()
 {
+    rfidSetup();
     if (rfidDetected(playerUid, playerName, playerData, CHECKIN_TRIES_BYTE)) {
         ResetWatchdogTimer();
         setupPuzzle((char *)playerName);
         checkin_fsm_state = WAIT_FOR_GAME_DONE;
+        Serial.println("Starting Game!");
     }
+    closeRfid();
+}
+
+void process_rfid_update()
+{
+    rfidSetup();
+    byte oldPlayerName[16];
+    byte oldPlayerData[16];
+    byte writeTagDone[1];
+    if (rfidDetected(playerUid, oldPlayerName, oldPlayerData, CHECKIN_DONE_BYTE)) {
+        // This assumes 1 is "paragon" path and 2 is "renegade"
+        // this should be different for different puzzles so
+        // people don't know exactly what they are picking
+        if(choiceEntered = 0) {
+            if (!incrementBlockRfid(PARAGON_CHOICE_COUNT_BYTE)) {
+                return;
+            }
+        }
+        else
+        {
+            if (!incrementBlockRfid(RENEGADE_CHOICE_COUNT_BYTE))
+            {
+                return;
+            }
+        }
+        ResetWatchdogTimer();
+        lcdReset();
+        checkin_fsm_state = SLEEP_STATE;
+        Serial.println("Tag Updated!");
+    }
+    closeRfid();
 }
 
 void process_state_machine()
@@ -87,7 +121,7 @@ void process_state_machine()
 
             ++sleepCycles;
             sleepNow();
-            Serial.println(sleepCycles);
+            Serial.println("Sleeping!");
             if(sleepCycles >= 20)
             {
                 ledSetState(LED_IDLE);
@@ -125,6 +159,7 @@ void process_state_machine()
                 ledSetState(LED_OFF);
                 checkin_fsm_state = DISPLAY_CHOICE_PROMPT;
                 setLcdMessage(moralChoicePrompt, 10, 3000);
+                Serial.println("Game Done!");
             }
             break;
         }
@@ -166,30 +201,10 @@ void process_state_machine()
         case WAIT_FOR_GAME_DONE_TAG: {
             // Display name and ask to retag
             ledSetState(LED_OFF);
-            byte oldPlayerName[16];
-            byte oldPlayerData[16];
-            byte writeTagDone[1];
-            if (rfidDetected(playerUid, oldPlayerName, oldPlayerData, CHECKIN_DONE_BYTE)) {
-                // This assumes 1 is "paragon" path and 2 is "renegade"
-                // this should be different for different puzzles so
-                // people don't know exactly what they are picking
-                if(choiceEntered = 0) {
-                    if (!incrementBlockRfid(PARAGON_CHOICE_COUNT_BYTE)) {
-                        break;
-                    }
-                }
-                else
-                {
-                    if (!incrementBlockRfid(RENEGADE_CHOICE_COUNT_BYTE))
-                    {
-                        break;
-                    }
-                }
-                ResetWatchdogTimer();
-                lcdReset();
-                checkin_fsm_state = SLEEP_STATE;
-            }
-            break;
+            process_rfid_update();
+        }
+        case DEBUG_STATE: {
+
         }
         default:
             break;
@@ -200,10 +215,10 @@ void loop() {
     process_state_machine();
     ledUpdate();
     FastLED.show();
-    closeRfid();
-    if(WatchdogTimerExpired() && PUZZLE_DEBUG_MODE == 0)
+    if(WatchdogTimerExpired())
     {
         setup();
+        Serial.println("Timer Expired!");
     }
     delay(GAME_TICK_RATE);
 }
