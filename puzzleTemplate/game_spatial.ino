@@ -1,3 +1,5 @@
+#include "config.h"
+#ifdef PUZZLE_GAME_SPATIAL
 #include <Arduino.h>
 
 #define WAIT_PUZZLE_PROMPT 0
@@ -12,7 +14,6 @@ static bool puzzle_match;
 unsigned long puzzle_timer = millis();
 
 #include "lcd.h"
-#include "config.h"
 #include "puzzle_keypad.h"
 #include "watchdog.h"
 #include "led.h"
@@ -96,4 +97,4 @@ void updateGameState() {
             break;
     }
 }
-
+#endif
