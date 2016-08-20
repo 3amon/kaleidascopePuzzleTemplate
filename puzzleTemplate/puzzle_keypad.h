@@ -11,6 +11,4 @@ void keyClearData();
 
 char keyCheckForKeyPress();
 
-String keyGetData();
-
 #endif //PUZZLETEMPLATE_PUZZLE_KEYPAD_H

@@ -11,6 +11,10 @@
 #include <FastLED.h>
 #include <Keypad.h>
 
+#if PUZZLE_NUM == 4
+#include "messages_puzzle4.h"
+#endif
+
 Sleep sleep;
 unsigned long sleepTime = 1000; //how long you want the arduino to sleep
 #define RST_PIN         10
@@ -23,6 +27,7 @@ unsigned long sleepTime = 1000; //how long you want the arduino to sleep
 #define WAIT_FOR_GAME_DONE_TAG 6
 #define WAIT_IDLE_LDE 7
 #define WAIT_IDLE_OFF 8
+#define WAIT_ADDITIONAL_INFO 9
 #define DEBUG_STATE 99
 
 int checkin_fsm_state = WAIT_IDLE_OFF;
@@ -33,7 +38,6 @@ byte playerData[16];
 const int playerPacketSize = sizeof(playerUid) + sizeof(playerName) + sizeof(playerData);
 byte playerPacket[playerPacketSize];
 
-bool gameDone = false;
 int choiceEntered = 0;
 unsigned long idle_demo_timer = 0;
 int sleepCycles = 0;
@@ -60,56 +64,16 @@ void setup() {
     randomSeed(analogRead(0));
 }
 
-void sleepNow() {
-    delay(100);
-    digitalWrite(RST_PIN, LOW);
-    resetLed();
-    lcdReset();
-    sleep.pwrDownMode(); //set sleep mode
-    sleep.sleepDelay(sleepTime); //sleep for: sleepTime
-    setup();
-}
-
-void process_rfid_checkIn()
-{
-    rfidSetup();
-    if (rfidDetected(playerUid, playerName, playerData, CHECKIN_TRIES_BYTE)) {
-        ResetWatchdogTimer();
-        setupPuzzle((char *)playerName);
-        checkin_fsm_state = WAIT_FOR_GAME_DONE;
-        Serial.println("Starting Game!");
+void loop() {
+    process_state_machine();
+    ledUpdate();
+    FastLED.show();
+    if(WatchdogTimerExpired())
+    {
+        setup();
+        Serial.println("Timer Expired!");
     }
-    closeRfid();
-}
-
-void process_rfid_update()
-{
-    rfidSetup();
-    byte oldPlayerName[16];
-    byte oldPlayerData[16];
-    byte writeTagDone[1];
-    if (rfidDetected(playerUid, oldPlayerName, oldPlayerData, CHECKIN_DONE_BYTE)) {
-        // This assumes 1 is "paragon" path and 2 is "renegade"
-        // this should be different for different puzzles so
-        // people don't know exactly what they are picking
-        if(choiceEntered = 0) {
-            if (!incrementBlockRfid(PARAGON_CHOICE_COUNT_BYTE)) {
-                return;
-            }
-        }
-        else
-        {
-            if (!incrementBlockRfid(RENEGADE_CHOICE_COUNT_BYTE))
-            {
-                return;
-            }
-        }
-        ResetWatchdogTimer();
-        lcdReset();
-        checkin_fsm_state = SLEEP_STATE;
-        Serial.println("Tag Updated!");
-    }
-    closeRfid();
+    delay(GAME_TICK_RATE);
 }
 
 void process_state_machine()
@@ -153,17 +117,16 @@ void process_state_machine()
             break;
         }
         case WAIT_FOR_GAME_DONE: {
-            updateGameState();
-            if (gameDone) {
+            if (updateGameState()) {
+                ledSetState(LED_VICTORY);
                 lcdDisplayOn();
-                ledSetState(LED_OFF);
+                setLcdMessage(moralChoicePrompt, 10, DEFAULT_LCD_SCREEN_UPDATE);
+                updateLcdMessage();
                 checkin_fsm_state = DISPLAY_CHOICE_PROMPT;
-                setLcdMessage(moralChoicePrompt, 10, 3000);
                 Serial.println("Game Done!");
             }
             break;
         }
-
         case DISPLAY_CHOICE_PROMPT:
         {
             if(updateLcdMessage()) {
@@ -171,7 +134,6 @@ void process_state_machine()
             }
             break;
         }
-
         case WAIT_MORAL_CHOICE:
         {
             char key = keyCheckForKeyPress();
@@ -192,16 +154,23 @@ void process_state_machine()
                     // If they press a different key... lets just show them
                     // the choices again!
                     checkin_fsm_state = DISPLAY_CHOICE_PROMPT;
-                    setLcdMessage(moralChoicePrompt, 10, 3000);
+                    setLcdMessage(moralChoicePrompt, 10, DEFAULT_LCD_SCREEN_UPDATE);
                 }
             }
             break;
         }
-
         case WAIT_FOR_GAME_DONE_TAG: {
             // Display name and ask to retag
-            ledSetState(LED_OFF);
-            process_rfid_update();
+            process_rfid_checkOut();
+            break;
+        }
+        case WAIT_ADDITIONAL_INFO:{
+            if(updateLcdMessage()) {
+                ledSetState(LED_OFF);
+                lcdReset();
+                checkin_fsm_state = SLEEP_STATE;
+            }
+            break;
         }
         case DEBUG_STATE: {
 
@@ -211,14 +180,62 @@ void process_state_machine()
     }
 }
 
-void loop() {
-    process_state_machine();
-    ledUpdate();
-    FastLED.show();
-    if(WatchdogTimerExpired())
-    {
-        setup();
-        Serial.println("Timer Expired!");
+void process_rfid_checkIn()
+{
+    rfidSetup();
+    if (rfidDetected(playerUid, playerName, playerData, PUZZLE_TRIES_BYTE)) {
+        ResetWatchdogTimer();
+        setupGame((char *)playerName);
+        checkin_fsm_state = WAIT_FOR_GAME_DONE;
+        Serial.println("Starting Game!");
     }
-    delay(GAME_TICK_RATE);
+    closeRfid();
+}
+
+void process_rfid_checkOut()
+{
+    rfidSetup();
+    byte oldPlayerName[16];
+    byte oldPlayerData[16];
+    byte writeTagDone[1];
+    if (rfidDetected(playerUid, oldPlayerName, oldPlayerData, PUZZLE_COMPLETE_BYTE)) {
+        // This assumes 1 is "paragon" path and 2 is "renegade"
+        // this should be different for different puzzles so
+        // people don't know exactly what they are picking
+        if(choiceEntered = 0) {
+            if (!incrementBlockRfid(PARAGON_CHOICE_COUNT_BYTE)) {
+                return;
+            }
+        }
+        else
+        {
+            if (!incrementBlockRfid(RENEGADE_CHOICE_COUNT_BYTE))
+            {
+                return;
+            }
+        }
+        ResetWatchdogTimer();
+
+        if(ADDITIONAL_INSTRUCTIONS) {
+            setLcdMessage(additionalInfoPrompt, 10, DEFAULT_LCD_SCREEN_UPDATE);
+            checkin_fsm_state = WAIT_ADDITIONAL_INFO;
+        }
+        else {
+            ledSetState(LED_OFF);
+            lcdReset();
+            checkin_fsm_state = SLEEP_STATE;
+        }
+        Serial.println("Tag Updated!");
+    }
+    closeRfid();
+}
+
+void sleepNow() {
+    delay(100);
+    digitalWrite(RST_PIN, LOW);
+    resetLed();
+    lcdReset();
+    sleep.pwrDownMode(); //set sleep mode
+    sleep.sleepDelay(sleepTime); //sleep for: sleepTime
+    setup();
 }

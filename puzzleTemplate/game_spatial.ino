@@ -17,17 +17,34 @@ unsigned long puzzle_timer = millis();
 #include "puzzle_keypad.h"
 #include "watchdog.h"
 #include "led.h"
+#include "messages.h"
 
-void setupPuzzle(char * playerName)
+#define GAME_MATCH_REQ 5
+#define GAME_BASE_UPDATE_RATE 10000UL
+
+char puzzlePrompt[8][LCD_LINE_BUFFER_LENGTH] = {
+        ////////////////
+        "Greetings:",
+        "<player_name>",
+        "Press the green",
+        "button when a",
+        "cube is shown",
+        "that could be",
+        "made from the",
+        "unfolded cross."
+};
+
+
+int puzzlePromptSize = ARRAY_SIZE(puzzlePrompt);
+
+void setupGame(char * playerName)
 {
     puzzle_score = 0;
     puzzle_state = WAIT_PUZZLE_PROMPT;
-    gameDone = false;
-    keyClearData();
     ledSetState(LED_OFF);
     strncpy(puzzlePrompt[1], playerName, LCD_LINE_BUFFER_LENGTH);
     lcdDisplayOn();
-    setLcdMessage(puzzlePrompt, 8, 3000);
+    setLcdMessage(puzzlePrompt, puzzlePromptSize, 3000);
     updateLcdMessage();
 }
 
@@ -39,7 +56,7 @@ void makeNewPuzzle()
     ledSetState(LED_SPATIAL_PUZZLE);
 }
 
-void updateGameState() {
+bool updateGameState() {
     switch (puzzle_state) {
         case WAIT_PUZZLE_PROMPT: {
             if (updateLcdMessage()) {
@@ -88,13 +105,13 @@ void updateGameState() {
             break;
         }
         case PUZZLE_DONE:
-            gameDone = true;
             buttonOff();
-            keyClearData();
             puzzle_state = NULL_STATE;
             break;
         default:
             break;
     }
+
+    return puzzle_state == PUZZLE_DONE;
 }
 #endif

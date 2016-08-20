@@ -10,6 +10,7 @@
 
 const byte ROWS = 4; //four rows
 const byte COLS = 4; //four columns
+
 //define the cymbols on the buttons of the keypads
 char hexaKeys[ROWS][COLS] = {
         {'1','2','3','+'},
@@ -21,26 +22,9 @@ byte rowPins[ROWS] = {A1, 0, 9, 8}; //connect to the row pinouts of the keypad
 byte colPins[COLS] = {7, 6, 5, 4}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
-Keypad customKeypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
-
-String g_keypadInput = "";
-
-void keyClearData()
-{
-    g_keypadInput = "";
-}
+Keypad customKeypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
 char keyCheckForKeyPress()
 {
-    char key = customKeypad.getKey();
-    if (key && g_keypadInput.length() < KEYPAD_MAX_INPUT_LENGTH)
-    {
-        g_keypadInput += char(key);
-    }
-    return key;
-}
-
-String keyGetData()
-{
-    return g_keypadInput;
+    return (char)customKeypad.getKey();
 }
