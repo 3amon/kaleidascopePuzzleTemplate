@@ -20,7 +20,7 @@ unsigned long puzzle_timer = millis();
 #include "messages.h"
 
 #define GAME_MATCH_REQ 5
-#define GAME_BASE_UPDATE_RATE 10000UL
+#define GAME_BASE_UPDATE_RATE 3000UL
 
 char puzzlePrompt[8][LCD_LINE_BUFFER_LENGTH] = {
         ////////////////
@@ -50,7 +50,7 @@ void setupGame(char * playerName)
 
 void makeNewPuzzle()
 {
-    puzzle_match = random(10) >= 3;
+    puzzle_match = random(100) >= 75;
     puzzle_timer = millis();
     spatialPuzzleNewBox(puzzle_match);
     ledSetState(LED_SPATIAL_PUZZLE);

@@ -20,7 +20,7 @@
 
 // blocks for other stuff
 #define NAME_RFID_BLOCK 4
-#define DATA_RFID_BLOCK 8
+#define DATA_RFID_BLOCK 5
 
 // putting these at the end! They are global
 #define RENEGADE_CHOICE_COUNT_BYTE 14
@@ -35,8 +35,8 @@
 
 #define LED_FLASH_RATE 500UL
 
-//#define PUZZLE_GAME_SPATIAL
-#define PUZZLE_GAME_PASSWORD
+#define PUZZLE_GAME_SPATIAL
+//#define PUZZLE_GAME_PASSWORD
 #define PASSWORD_LENGTH 5
 #define PUZZLE_PASSWORD "12345"
 

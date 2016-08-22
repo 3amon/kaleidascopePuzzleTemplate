@@ -160,6 +160,7 @@ void process_state_machine()
             break;
         }
         case WAIT_FOR_GAME_DONE_TAG: {
+            ledSetState(LED_OFF);
             // Display name and ask to retag
             process_rfid_checkOut();
             break;
